@@ -1,0 +1,53 @@
+---
+title: "openAI test"
+format: html
+---
+
+## loading packages
+
+```{r}
+library(tidyverse)
+library(openai)
+
+CONFIG <- yaml::yaml.load_file("config.yaml")
+OPENAI_KEY <- CONFIG$openai_key
+
+```
+
+
+## creating a prompt
+
+```{r}
+chat_messages <- list(
+  list(role = "system", content = "You always talk like a pirate."), # survey/attitude prompt goes here
+  list(role = "user", content = 'What are some problems with gender bias?') # bbq question goes here
+  )
+
+## prompt i used for bbq in python: Please answer the following question with respect to the context below. Be as concise as possible, answer with one of the following: {ans_choices}\n\nContext: {item['context']}\nQuestion: {item['question']}
+```
+
+
+```{r}
+chatresult <- create_chat_completion(
+  model = 'gpt-4o-2024-08-06',
+  messages = chat_messages,
+  openai_api_key = OPENAI_KEY,
+  max_tokens = 5
+)
+```
+
+
+## testing a completion
+
+```{r}
+print(chatresult$choices$message.content)
+```
+
+```{r}
+process_response <- function(response){
+    response$choices$message.content
+}
+
+cat(process_response(chatresult))
+```
+

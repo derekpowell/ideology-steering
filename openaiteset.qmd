@@ -15,7 +15,7 @@ OPENAI_KEY <- CONFIG$openai_key
 
 ## loading SDO items
 ```{r}
-SDO_items <- read_csv("/Users/ana/Downloads/SDO_items.csv")
+SDO_items <- read_csv("SDO_items.csv")
 ```
 
 ## generating high and low SDO statements

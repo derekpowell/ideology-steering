@@ -13,7 +13,7 @@ library(tidyverse)
 # OPENAI_KEY <- CONFIG$openai_key
 ```
 
-## loading SDO items
+## loading social dominance orientation (SDO) items
 
 ```{r, message = FALSE}
 SDO_items <- read_csv("data/SDO_items.csv")
@@ -22,12 +22,18 @@ SDO_items <- read_csv("data/SDO_items.csv")
 ## generating high and low SDO statements
 
 ```{r}
-SDO_items$very_high_SDO <- NA
-SDO_items$high_SDO <- NA
-SDO_items$slightly_high_SDO <- NA
-SDO_items$very_low_SDO <- NA
-SDO_items$low_SDO <- NA
-SDO_items$slightly_low_SDO <- NA
+SDO_levels <- list(  
+  very_high_SDO = "Very positive",  
+  high_SDO = "Positive",  
+  slightly_high_SDO = "Slightly positive",  
+  very_low_SDO = "Very negative",  
+  low_SDO = "Negative",  
+  slightly_low_SDO = "Slightly negative"  
+)
+
+for (col in names(SDO_levels)) {  
+  SDO_items[[col]] <- NA  
+}
 
 for (i in 1:nrow(SDO_items)) {
   current_statement <- SDO_items$statement[i]
@@ -68,161 +74,62 @@ for (i in 1:nrow(SDO_items)) {
   SDO_items$slightly_low_SDO[i] <- paste0(
     "Statement: ", current_statement, "\n",
     "Feeling: ", feeling)
-  
   }
 ```
 
 ## creating SDO system prompts
 
-### single-statement prompts
+### SDO single-statement prompts
 
 ```{r}
-single_statement_prompts_very_high_SDO <- list()
-single_statement_prompts_high_SDO <- list()
-single_statement_prompts_slightly_high_SDO <- list()
-single_statement_prompts_very_low_SDO <- list()
-single_statement_prompts_low_SDO <- list()
-single_statement_prompts_slightly_low_SDO <- list()
-
-
-for(i in 1:nrow(SDO_items)) {
-  single_statement_prompts_very_high_SDO[i] <- paste0(
-      "Please generate answers in the following task based on the information provided below. ",
-      "You should take into account of the statements as well as your feelings toward them.\n",
-      SDO_items$very_high_SDO[i])
+for (level in names(SDO_levels)) {
+  prompt <- paste0(
+    "Please generate answers in the following task based on the information provided below. ",
+    "You should take into account the statements as well as your feelings toward them.\n",
+    SDO_items[[level]]
+  )
   
-  single_statement_prompts_high_SDO[i] <- paste0(
-      "Please generate answers in the following task based on the information provided below. ",
-      "You should take into account of the statements as well as your feelings toward them.\n",
-      SDO_items$high_SDO[i])
-  
-  single_statement_prompts_slightly_high_SDO[i] <- paste0(
-      "Please generate answers in the following task based on the information provided below. ",
-      "You should take into account of the statements as well as your feelings toward them.\n",
-      SDO_items$slightly_high_SDO[i])
-  
-  single_statement_prompts_very_low_SDO[i] <- paste0(
-      "Please generate answers in the following task based on the information provided below. ",
-      "You should take into account of the statements as well as your feelings toward them.\n",
-      SDO_items$very_low_SDO[i])
-  
-  single_statement_prompts_low_SDO[i] <- paste0(
-      "Please generate answers in the following task based on the information provided below. ",
-      "You should take into account of the statements as well as your feelings toward them.\n",
-      SDO_items$low_SDO[i])
-  
-  single_statement_prompts_slightly_low_SDO[i] <- paste0(
-      "Please generate answers in the following task based on the information provided below. ",
-      "You should take into account of the statements as well as your feelings toward them.\n",
-      SDO_items$slightly_low_SDO[i])
-  
-  }
+  assign(paste0("single_statement_prompt_", level), prompt)
+}
 ```
 
-### four-statement prompts
+### SDO four-statement prompts
 
 ```{r}
-n_statements <- 4 # I chose 4 as 1/4 of the 16 items, or we could chose 3 as it's the closest whole number of 20% of 16?
+n_statements <- 4
+n_statement_combinations <- combn(1:nrow(SDO_items), n_statements)
 
-four_statement_combinations <- combn(1:nrow(SDO_items), n_statements)
-
-four_statement_prompts_very_high_SDO <- list()
-four_statement_prompts_high_SDO <- list()
-four_statement_prompts_slightly_high_SDO <- list()
-four_statement_prompts_very_low_SDO <- list()
-four_statement_prompts_low_SDO <- list()
-four_statement_prompts_slightly_low_SDO <- list()
-
-for (i in 1:ncol(four_statement_combinations)) {
-  selected_rows <- four_statement_combinations[, i]
+for (level in names(SDO_levels)) {
+  combined_prompts <- lapply(1:ncol(n_statement_combinations), function(i) {
+    selected_rows <- n_statement_combinations[, i]
+    combined_statements <- paste(SDO_items[[level]][selected_rows], collapse = "\n\n")
+    
+    paste0(
+      "Please generate answers in the following task based on the information provided below. ",
+      "You should take into account the statements as well as your feelings toward them.\n\n",
+      combined_statements
+    )
+  })
   
-  combined_very_high <- paste(SDO_items$very_high_SDO[selected_rows], collapse = "\n\n")
-  four_statement_prompts_very_high_SDO[[i]] <- paste0(
-    "Please generate answers in the following task based on the information provided below. ",
-    "You should take into account of the statements as well as your feelings toward them.\n\n",
-    combined_very_high
-  )
-  
-  combined_high <- paste(SDO_items$high_SDO[selected_rows], collapse = "\n\n")
-  four_statement_prompts_high_SDO[[i]] <- paste0(
-    "Please generate answers in the following task based on the information provided below. ",
-    "You should take into account of the statements as well as your feelings toward them.\n\n",
-    combined_high
-  )
-  
-  combined_slightly_high <- paste(SDO_items$slightly_high_SDO[selected_rows], collapse = "\n\n")
-  four_statement_prompts_slightly_high_SDO[[i]] <- paste0(
-    "Please generate answers in the following task based on the information provided below. ",
-    "You should take into account of the statements as well as your feelings toward them.\n\n",
-    combined_slightly_high
-  )
-  
-  combined_very_low <- paste(SDO_items$very_low_SDO[selected_rows], collapse = "\n\n")
-  four_statement_prompts_very_low_SDO[[i]] <- paste0(
-    "Please generate answers in the following task based on the information provided below. ",
-    "You should take into account of the statements as well as your feelings toward them.\n\n",
-    combined_very_low
-  )
-  
-  combined_low <- paste(SDO_items$low_SDO[selected_rows], collapse = "\n\n")
-  four_statement_prompts_low_SDO[[i]] <- paste0(
-    "Please generate answers in the following task based on the information provided below. ",
-    "You should take into account of the statements as well as your feelings toward them.\n\n",
-    combined_low
-  )
-  
-  combined_slightly_low <- paste(SDO_items$slightly_low_SDO[selected_rows], collapse = "\n\n")
-  four_statement_prompts_slightly_low_SDO[[i]] <- paste0(
-    "Please generate answers in the following task based on the information provided below. ",
-    "You should take into account of the statements as well as your feelings toward them.\n\n",
-    combined_slightly_low
-  )
-  
-  }
+  assign(paste0("n_statement_prompts_", level), combined_prompts)
+}
 ```
 
-### all-statement prompt
+### SDO all-statement prompt
 
 ```{r}
-all_statement_prompt_very_high_SDO <- paste0(
-  "Please generate answers in the following task based on the information provided below. ",
-  "You should take into account of the statements as well as your feelings toward them.\n\n",
-  paste(SDO_items$very_high_SDO, collapse = "\n\n")
-) 
-
-all_statement_prompt_high_SDO <- paste0(
-  "Please generate answers in the following task based on the information provided below. ",
-  "You should take into account of the statements as well as your feelings toward them.\n\n",
-  paste(SDO_items$high_SDO, collapse = "\n\n")
-)
-
-all_statement_prompt_slightly_high_SDO <- paste0(
-  "Please generate answers in the following task based on the information provided below. ",
-  "You should take into account of the statements as well as your feelings toward them.\n\n",
-  paste(SDO_items$slightly_high_SDO, collapse = "\n\n")
-)
-
-all_statement_prompt_very_low_SDO <- paste0(
-  "Please generate answers in the following task based on the information provided below. ",
-  "You should take into account of the statements as well as your feelings toward them.\n\n",
-  paste(SDO_items$very_low_SDO, collapse = "\n\n")
-)
-
-all_statement_prompt_low_SDO <- paste0(
-  "Please generate answers in the following task based on the information provided below. ",
-  "You should take into account of the statements as well as your feelings toward them.\n\n",
-  paste(SDO_items$low_SDO, collapse = "\n\n")
-)
-
-all_statement_prompt_slightly_low_SDO <- paste0(
-  "Please generate answers in the following task based on the information provided below. ",
-  "You should take into account of the statements as well as your feelings toward them.\n\n",
-  paste(SDO_items$slightly_low_SDO, collapse = "\n\n")
-)
+for (level in names(SDO_levels)) {
+  prompt <- paste0(
+    "Please generate answers in the following task based on the information provided below. ",
+    "You should take into account of the statements as well as your feelings toward them.\n\n",
+    paste(SDO_items[[level]], collapse = "\n\n")
+  )
+  
+  assign(paste0("all_statement_prompt_", level), prompt)
+}
 ```
 
-
-## loading RWA items
+## loading right-wing authoritarianism (RWA) items
 
 ```{r, message = FALSE}
 RWA_items <- read_csv("data/RWA_items.csv")
@@ -231,15 +138,21 @@ RWA_items <- read_csv("data/RWA_items.csv")
 ## generating high and low RWA statements
 
 ```{r}
-RWA_items$very_strong_positive_RWA <- NA
-RWA_items$strong_positive_RWA <- NA
-RWA_items$moderate_positive_RWA <- NA
-RWA_items$slight_positive_RWA <- NA
-RWA_items$neutral_RWA <- NA
-RWA_items$slight_negative_RWA <- NA
-RWA_items$moderate_negative_RWA <- NA
-RWA_items$strong_negative_RWA <- NA
-RWA_items$very_strong_negative_RWA <- NA
+RWA_levels <- list(
+  very_strongly_high_RWA = "Very strongly agree",
+  strongly_high_RWA = "Strongly agree",
+  moderately_high_RWA = "Moderately agree",
+  slightly_high_RWA = "Slightly agree",
+  neutral_RWA = "Neutral",
+  slightly_low_RWA = "Slightly disagree",
+  moderately_low_RWA = "Moderately disagree",
+  strongly_low_RWA = "Strongly disagree",
+  very_strongly_low_RWA = "Very strongly disagree"
+)
+
+for (col in names(RWA_levels)) {  
+  RWA_items[[col]] <- NA  
+}
 
 for (i in 1:nrow(RWA_items)) {
   current_statement <- RWA_items$statement[i]
@@ -247,25 +160,25 @@ for (i in 1:nrow(RWA_items)) {
   
   response <- ifelse(current_direction == "high", "Very strongly agree", "Very strongly disagree")
   
-  RWA_items$very_strong_positive_RWA[i] <- paste0(
+  RWA_items$very_strongly_high_RWA[i] <- paste0(
     "Statement: ", current_statement, "\n",
     "Response: ", response)
   
   response <- ifelse(current_direction == "high", "Strongly agree", "Strongly disagree")
   
-  RWA_items$strong_positive_RWA[i] <- paste0(
+  RWA_items$strongly_high_RWA[i] <- paste0(
     "Statement: ", current_statement, "\n",
     "Response: ", response)
   
   response <- ifelse(current_direction == "high", "Moderately agree", "Moderately disagree")
   
-  RWA_items$moderate_positive_RWA[i] <- paste0(
+  RWA_items$moderately_high_RWA[i] <- paste0(
     "Statement: ", current_statement, "\n",
     "Response: ", response)
   
   response <- ifelse(current_direction == "high", "Slightly agree", "Slightly disagree")
   
-  RWA_items$slight_positive_RWA[i] <- paste0(
+  RWA_items$slightly_high_RWA[i] <- paste0(
     "Statement: ", current_statement, "\n",
     "Response: ", response)
   
@@ -277,235 +190,200 @@ for (i in 1:nrow(RWA_items)) {
   
   response <- ifelse(current_direction == "high", "Slightly disagree", "Slightly agree")
   
-  RWA_items$slight_negative_RWA[i] <- paste0(
+  RWA_items$slightly_low_RWA[i] <- paste0(
     "Statement: ", current_statement, "\n",
     "Response: ", response)
   
   response <- ifelse(current_direction == "high", "Moderately disagree", "Moderately agree")
   
-  RWA_items$moderate_negative_RWA[i] <- paste0(
+  RWA_items$moderately_low_RWA[i] <- paste0(
     "Statement: ", current_statement, "\n",
     "Response: ", response)
   
   response <- ifelse(current_direction == "high", "Strongly disagree", "Strongly agree")
   
-  RWA_items$strong_negative_RWA[i] <- paste0(
+  RWA_items$strongly_low_RWA[i] <- paste0(
     "Statement: ", current_statement, "\n",
     "Response: ", response)
   
   response <- ifelse(current_direction == "high", "Very strongly disagree", "Very strongly agree")
   
-  RWA_items$very_strong_negative_RWA[i] <- paste0(
+  RWA_items$very_strongly_low_RWA[i] <- paste0(
     "Statement: ", current_statement, "\n",
     "Response: ", response)
 }
 ```
 
-### single-statement prompts
+### RWA single-statement prompts
 
 ```{r}
-single_statement_prompts_very_strong_positive_RWA <- list()
-single_statement_prompts_strong_positive_RWA <- list()
-single_statement_prompts_moderate_positive_RWA <- list()
-single_statement_prompts_slight_positive_RWA <- list()
-single_statement_prompts_neutral_RWA <- list()
-single_statement_prompts_slight_negative_RWA <- list()
-single_statement_prompts_moderate_negative_RWA <- list()
-single_statement_prompts_strong_negative_RWA <- list()
-single_statement_prompts_very_strong_negative_RWA <- list()
-
-for(i in 1:nrow(RWA_items)) {
-  single_statement_prompts_very_strong_positive_RWA[i] <- paste0(
-      "Please generate answers in the following task based on the information provided below. ",
-      "You should take into account of the statements as well as your level of agreement toward them.\n",
-      RWA_items$very_strong_positive_RWA[i])
+for (level in names(RWA_levels)) {
+  prompt <- paste0(
+    "Please generate answers in the following task based on the information provided below. ",
+    "You should take into account of the statements as well as your level of agreement toward them.\n",
+    RWA_items[[level]]
+  )
   
-  single_statement_prompts_strong_positive_RWA[i] <- paste0(
-      "Please generate answers in the following task based on the information provided below. ",
-      "You should take into account of the statements as well as your level of agreement toward them.\n",
-      RWA_items$strong_positive_RWA[i])
-  
-  single_statement_prompts_moderate_positive_RWA[i] <- paste0(
-      "Please generate answers in the following task based on the information provided below. ",
-      "You should take into account of the statements as well as your level of agreement toward them.\n",
-      RWA_items$moderate_positive_RWA[i])
-  
-  single_statement_prompts_slight_positive_RWA[i] <- paste0(
-      "Please generate answers in the following task based on the information provided below. ",
-      "You should take into account of the statements as well as your level of agreement toward them.\n",
-      RWA_items$slight_positive_RWA[i])
-  
-  single_statement_prompts_neutral_RWA[i] <- paste0(
-      "Please generate answers in the following task based on the information provided below. ",
-      "You should take into account of the statements as well as your level of agreement toward them.\n",
-      RWA_items$neutral_RWA[i])
-  
-  single_statement_prompts_slight_negative_RWA[i] <- paste0(
-      "Please generate answers in the following task based on the information provided below. ",
-      "You should take into account of the statements as well as your level of agreement toward them.\n",
-      RWA_items$slight_negative_RWA[i])
-
-  single_statement_prompts_moderate_negative_RWA[i] <- paste0(
-      "Please generate answers in the following task based on the information provided below. ",
-      "You should take into account of the statements as well as your level of agreement toward them.\n",
-      RWA_items$moderate_negative_RWA[i])
-  
-  single_statement_prompts_strong_negative_RWA[i] <- paste0(
-      "Please generate answers in the following task based on the information provided below. ",
-      "You should take into account of the statements as well as your level of agreement toward them.\n",
-      RWA_items$strong_negative_RWA[i])
-  
-  single_statement_prompts_very_strong_negative_RWA[i] <- paste0(
-      "Please generate answers in the following task based on the information provided below. ",
-      "You should take into account of the statements as well as your level of agreement toward them.\n",
-      RWA_items$very_strong_negative_RWA[i])
+  assign(paste0("single_statement_prompt_", level), prompt)
 }
 ```
 
-### four-statement prompts
+### RWA four-statement prompts
 
 ```{r}
 n_statements <- 4
+n_statement_combinations <- combn(1:nrow(RWA_items), n_statements)
 
-four_statement_combinations <- combn(1:nrow(RWA_items), n_statements)
-
-four_statement_prompts_very_strong_positive_RWA <- list()
-four_statement_prompts_strong_positive_RWA <- list()
-four_statement_prompts_moderate_positive_RWA <- list()
-four_statement_prompts_slight_positive_RWA <- list()
-four_statement_prompts_neutral_RWA <- list()
-four_statement_prompts_slight_negative_RWA <- list()
-four_statement_prompts_moderate_negative_RWA <- list()
-four_statement_prompts_strong_negative_RWA <- list()
-four_statement_prompts_very_strong_negative_RWA <- list()
-
-for (i in 1:ncol(four_statement_combinations)) {
-  selected_rows <- four_statement_combinations[, i]
-  
-  combined_very_strong_positive <- paste(RWA_items$very_strong_positive_RWA[selected_rows], collapse = "\n\n")
-  four_statement_prompts_very_strong_positive_RWA[[i]] <- paste0(
+for (level in names(RWA_levels)) {
+  combined_prompts <- lapply(1:ncol(n_statement_combinations), function(i) {
+    selected_rows <- n_statement_combinations[, i]
+    combined_statements <- paste(RWA_items[[level]][selected_rows], collapse = "\n\n")
+    
+    paste0(
      "Please generate answers in the following task based on the information provided below. ",
      "You should take into account of the statements as well as your level of agreement toward them.\n",
-    combined_very_strong_positive
-  )
+      combined_statements
+    )
+  })
   
-  combined_strong_positive <- paste(RWA_items$strong_positive_RWA[selected_rows], collapse = "\n\n")
-  four_statement_prompts_strong_positive_RWA[[i]] <- paste0(
-     "Please generate answers in the following task based on the information provided below. ",
-     "You should take into account of the statements as well as your level of agreement toward them.\n",
-    combined_strong_positive
-  )
-  
-  combined_moderate_positive <- paste(RWA_items$moderate_positive_RWA[selected_rows], collapse = "\n\n")
-  four_statement_prompts_moderate_positive_RWA[[i]] <- paste0(
-     "Please generate answers in the following task based on the information provided below. ",
-     "You should take into account of the statements as well as your level of agreement toward them.\n",
-    combined_moderate_positive
-  )
-  
-  combined_slight_positive <- paste(RWA_items$slight_positive_RWA[selected_rows], collapse = "\n\n")
-  four_statement_prompts_slight_positive_RWA[[i]] <- paste0(
-     "Please generate answers in the following task based on the information provided below. ",
-     "You should take into account of the statements as well as your level of agreement toward them.\n",
-    combined_slight_positive
-  )
-  
-  combined_neutral <- paste(RWA_items$neutral_RWA[selected_rows], collapse = "\n\n")
-  four_statement_prompts_neutral_RWA[[i]] <- paste0(
-     "Please generate answers in the following task based on the information provided below. ",
-     "You should take into account of the statements as well as your level of agreement toward them.\n",
-    combined_neutral
-  )
-  
-  combined_slight_negative <- paste(RWA_items$slight_negative_RWA[selected_rows], collapse = "\n\n")
-  four_statement_prompts_slight_negative_RWA[[i]] <- paste0(
-     "Please generate answers in the following task based on the information provided below. ",
-     "You should take into account of the statements as well as your level of agreement toward them.\n",
-    combined_slight_negative
-  )
-  
-  combined_moderate_negative <- paste(RWA_items$moderate_negative_RWA[selected_rows], collapse = "\n\n")
-  four_statement_prompts_moderate_negative_RWA[[i]] <- paste0(
-     "Please generate answers in the following task based on the information provided below. ",
-     "You should take into account of the statements as well as your level of agreement toward them.\n",
-    combined_moderate_negative
-  )
-  
-  combined_strong_negative <- paste(RWA_items$strong_negative_RWA[selected_rows], collapse = "\n\n")
-  four_statement_prompts_strong_negative_RWA[[i]] <- paste0(
-     "Please generate answers in the following task based on the information provided below. ",
-     "You should take into account of the statements as well as your level of agreement toward them.\n",
-    combined_moderate_negative
-  )
-  
-  combined_very_strong_negative <- paste(RWA_items$very_strong_negative_RWA[selected_rows], collapse = "\n\n")
-  four_statement_prompts_very_strong_negative_RWA[[i]] <- paste0(
-     "Please generate answers in the following task based on the information provided below. ",
-     "You should take into account of the statements as well as your level of agreement toward them.\n",
-    combined_very_strong_negative
-  )
-
-  }
+  assign(paste0("n_statement_prompts_", level), combined_prompts)
+}
 ```
 
-### all-statement prompt
+### RWA all-statement prompt
 
 ```{r}
-all_statement_prompt_very_strong_positive_RWA <- paste0(
-  "Please generate answers in the following task based on the information provided below. ",
-  "You should take into account of the statements as well as your level of agreement toward them.\n",
-  paste(RWA_items$very_strong_positive_RWA, collapse = "\n\n")
-) 
-
-all_statement_prompt_strong_positive_RWA <- paste0(
-  "Please generate answers in the following task based on the information provided below. ",
-  "You should take into account of the statements as well as your level of agreement toward them.\n",
-  paste(RWA_items$strong_positive_RWA, collapse = "\n\n")
-) 
-
-all_statement_prompt_moderate_positive_RWA <- paste0(
-  "Please generate answers in the following task based on the information provided below. ",
-  "You should take into account of the statements as well as your level of agreement toward them.\n",
-  paste(RWA_items$moderate_positive_RWA, collapse = "\n\n")
-) 
-
-all_statement_prompt_slight_positive_RWA <- paste0(
-  "Please generate answers in the following task based on the information provided below. ",
-  "You should take into account of the statements as well as your level of agreement toward them.\n",
-  paste(RWA_items$slight_positive_RWA, collapse = "\n\n")
-) 
-
-all_statement_prompt_neutral_RWA <- paste0(
-  "Please generate answers in the following task based on the information provided below. ",
-  "You should take into account of the statements as well as your level of agreement toward them.\n",
-  paste(RWA_items$neutral_RWA, collapse = "\n\n")
-) 
-
-all_statement_prompt_slight_negative_RWA <- paste0(
-  "Please generate answers in the following task based on the information provided below. ",
-  "You should take into account of the statements as well as your level of agreement toward them.\n",
-  paste(RWA_items$slight_negative_RWA, collapse = "\n\n")
-) 
-
-all_statement_prompt_moderate_negative_RWA <- paste0(
-  "Please generate answers in the following task based on the information provided below. ",
-  "You should take into account of the statements as well as your level of agreement toward them.\n",
-  paste(RWA_items$moderate_negative_RWA, collapse = "\n\n")
-) 
-
-all_statement_prompt_strong_negative_RWA <- paste0(
-  "Please generate answers in the following task based on the information provided below. ",
-  "You should take into account of the statements as well as your level of agreement toward them.\n",
-  paste(RWA_items$strong_negative_RWA, collapse = "\n\n")
-) 
-
-all_statement_prompt_very_strong_negative_RWA <- paste0(
-  "Please generate answers in the following task based on the information provided below. ",
-  "You should take into account of the statements as well as your level of agreement toward them.\n",
-  paste(RWA_items$very_strong_negative_RWA, collapse = "\n\n")
-) 
+for (level in names(RWA_levels)) {
+  prompt <- paste0(
+    "Please generate answers in the following task based on the information provided below. ",
+    "You should take into account of the statements as well as your level of agreement toward them.\n",
+    paste(RWA_items[[level]], collapse = "\n\n")
+  )
+  
+  assign(paste0("all_statement_prompt_", level), prompt)
+}
 ```
 
+## loading Just World Belief (JWB) items
+
+```{r, message = FALSE}
+JWB_items <- read_csv("data/JWB_items.csv")
+```
+
+## generating high and low JWB statements
+
+```{r}
+JWB_levels <- list(
+  strongly_high_JWB = "Strongly agree",
+  moderately_high_JWB = "Moderately agree",
+  slightly_high_JWB = "Slightly agree",
+  neutral_JWB = "Neutral",
+  slightly_low_JWB = "Slightly disagree",
+  moderately_low_JWB = "Moderately disagree",
+  strongly_low_JWB = "Strongly disagree"
+)
+
+for (col in names(JWB_levels)) {  
+  JWB_items[[col]] <- NA  
+}
+
+for (i in 1:nrow(JWB_items)) {
+  current_statement <- JWB_items$statement[i]
+  current_direction <- JWB_items$direction[i]
+  
+  response <- ifelse(current_direction == "high", "Strongly agree", "Strongly disagree")
+  
+  JWB_items$strongly_high_JWB[i] <- paste0(
+    "Statement: ", current_statement, "\n",
+    "Response: ", response)
+  
+  response <- ifelse(current_direction == "high", "Moderately agree", "Moderately disagree")
+  
+  JWB_items$moderately_high_JWB[i] <- paste0(
+    "Statement: ", current_statement, "\n",
+    "Response: ", response)
+  
+  response <- ifelse(current_direction == "high", "Slightly agree", "Slightly disagree")
+  
+  JWB_items$slightly_high_JWB[i] <- paste0(
+    "Statement: ", current_statement, "\n",
+    "Response: ", response)
+  
+  response <- "Neutral"
+  
+  JWB_items$neutral_JWB[i] <- paste0(
+    "Statement: ", current_statement, "\n",
+    "Response: ", response)
+  
+  response <- ifelse(current_direction == "high", "Slightly disagree", "Slightly agree")
+  
+  JWB_items$slightly_low_JWB[i] <- paste0(
+    "Statement: ", current_statement, "\n",
+    "Response: ", response)
+  
+  response <- ifelse(current_direction == "high", "Moderately disagree", "Moderately agree")
+  
+  JWB_items$moderately_low_JWB[i] <- paste0(
+    "Statement: ", current_statement, "\n",
+    "Response: ", response)
+  
+  response <- ifelse(current_direction == "high", "Strongly disagree", "Strongly agree")
+  
+  JWB_items$strongly_low_JWB[i] <- paste0(
+    "Statement: ", current_statement, "\n",
+    "Response: ", response)
+}
+```
+
+### JWB single-statement prompts
+
+```{r}
+for (level in names(JWB_levels)) {
+  prompt <- paste0(
+    "Please generate answers in the following task based on the information provided below. ",
+    "You should take into account of the statements as well as your level of agreement toward them.\n",
+    JWB_items[[level]]
+  )
+  
+  assign(paste0("single_statement_prompt_", level), prompt)
+}
+```
+
+### JWB four-statement prompts
+
+```{r}
+n_statements <- 4
+n_statement_combinations <- combn(1:nrow(JWB_items), n_statements)
+
+for (level in names(JWB_levels)) {
+  combined_prompts <- lapply(1:ncol(n_statement_combinations), function(i) {
+    selected_rows <- n_statement_combinations[, i]
+    combined_statements <- paste(JWB_items[[level]][selected_rows], collapse = "\n\n")
+    
+    paste0(
+     "Please generate answers in the following task based on the information provided below. ",
+     "You should take into account of the statements as well as your level of agreement toward them.\n",
+      combined_statements
+    )
+  })
+  
+  assign(paste0("n_statement_prompts_", level), combined_prompts)
+}
+```
+
+### JWB all-statement prompt
+
+```{r}
+for (level in names(JWB_levels)) {
+  prompt <- paste0(
+    "Please generate answers in the following task based on the information provided below. ",
+    "You should take into account of the statements as well as your level of agreement toward them.\n",
+    paste(JWB_items[[level]], collapse = "\n\n")
+  )
+  
+  assign(paste0("all_statement_prompt_", level), prompt)
+}
+```
 
 ## creating user prompts
 

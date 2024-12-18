@@ -142,6 +142,8 @@ for item in dataset['train']:
 
 
 bbq_df = pd.DataFrame(bbq)
+bbq_df.to_json("data/bbq_proc.json")
+
 print(len(bbq_df))
 
 random.seed(1234)
